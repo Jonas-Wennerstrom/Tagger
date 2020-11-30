@@ -77,7 +77,7 @@ To get a local copy up and running follow these simple steps.
 
 ### Prerequisites
 
-Everything necessary to build the project can be installed through pip.
+Everything necessary to build the project can be installed through pip. SQLite is included as standard in Python starting from 3.0.
   ```sh
   pip3 install appjar
   pip install sqlalchemy
@@ -89,7 +89,7 @@ Everything necessary to build the project can be installed through pip.
    ```sh
    git clone https://github.com/Jonas-Wennerstrom/Tagger.git
    ```
-2. Install NPM packages
+2. Install packages
    ```sh
    pip3 install appjar
    pip install sqlalchemy
