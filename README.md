@@ -7,9 +7,6 @@
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
-  <a href="https://github.com/Jonas-Wennerstrom/Tagger">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
-  </a>
 
   <h3 align="center">Tagger</h3>
 
@@ -60,10 +57,9 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
+Tagger is a GUI for manipulating a tag-based database aimed towards keeping track of media. It provides full control over the database, including creation, from the GUI. The entire program is written in Python (apart from the database creation which is in raw SQL).
 
-Here's a blank template to get started:
-**To avoid retyping too much info. Do a search and replace with your text editor for the following:**
-`Jonas-Wennerstrom`, `Tagger`, `twitter_handle`, `email`, `Tagger`, `project_description`
+This is a personal project created for the purposes of learning basic Python and to manage my own disparate media collections.
 
 
 ### Built With
@@ -104,7 +100,17 @@ Everything necessary to build the project can be installed through pip.
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+Using Tagger is quite straightforward: The main window consists of 6 tabs with self-explanatory titles:
+* Find file
+* Add file
+* Add tags
+* Update file
+* Remove file
+* Remove tag
+
+The entire functionality of the application is centered on the tags: To finda file, you check mandatory tags for the file to be matched with. To add a file, you input its length, title, and link (length and link are optional), check which tags apply, and commit. More exact instructions are available under the Help menu.
+
+Tags and file titles need to be unique. Deleting tags is generally discouraged as it may leave files without any tag, and thus 'lost' in the database. The capability to delete all such 'lost' files is provided in the menu.
 
 _For more examples, please refer to the [Documentation](https://example.com)_
 
@@ -129,15 +135,5 @@ Project Link: [https://github.com/Jonas-Wennerstrom/Tagger](https://github.com/J
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/Jonas-Wennerstrom/repo.svg?style=for-the-badge
-[contributors-url]: https://github.com/Jonas-Wennerstrom/repo/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/Jonas-Wennerstrom/repo.svg?style=for-the-badge
-[forks-url]: https://github.com/Jonas-Wennerstrom/repo/network/members
-[stars-shield]: https://img.shields.io/github/stars/Jonas-Wennerstrom/repo.svg?style=for-the-badge
-[stars-url]: https://github.com/Jonas-Wennerstrom/repo/stargazers
-[issues-shield]: https://img.shields.io/github/issues/Jonas-Wennerstrom/repo.svg?style=for-the-badge
-[issues-url]: https://github.com/Jonas-Wennerstrom/repo/issues
 [license-shield]: https://img.shields.io/github/license/Jonas-Wennerstrom/repo.svg?style=for-the-badge
 [license-url]: https://github.com/Jonas-Wennerstrom/repo/blob/master/LICENSE.txt
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://linkedin.com/in/Jonas-Wennerstrom
