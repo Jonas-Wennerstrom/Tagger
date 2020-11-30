@@ -61,6 +61,7 @@ Tagger is a GUI for manipulating a tag-based database aimed towards keeping trac
 
 This is a personal project created for the purposes of learning basic Python and to manage my own disparate media collections.
 
+Also included in the repo is a website scraper with creates a database of the top 1000 movies on imdb.com and a finished such database. These are included for testing and example purposes.
 
 ### Built With
 
