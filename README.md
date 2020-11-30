@@ -114,11 +114,11 @@ Tags and file titles need to be unique. Deleting tags is generally discouraged a
 
 ![Looking up files](Screens/lookup.jpg)
 This is what Tagger looks like upon launch and loading a database (in this case the top 1000 movies on imdb.com). To find a movie, check the tags you want and press 'Show results'
-![Result screen](/Screens/result.jpg)
+![Result screen](Screens/result.jpg)
 This is what you will be shown. A list of all movies which have all the tags marked, with a collapsible list of all tags they have, and the titles as links.
-![Adding files](Jonas-Wennerstrom/Tagger/tree/main/Screens/add.jpg)
+![Adding files](Screens/add.jpg)
 Adding a new file is quite straightforward. Note the ability to get title and path from a file.
-![Help menu](Jonas-Wennerstrom/Tagger/tree/main/Screens/help.jpg)
+![Help menu](Screens/help.jpg)
 A user-friendly documentation of the entire functionality is available through the menu.
 
 _For more examples, please refer to the [Documentation](https://example.com)_
