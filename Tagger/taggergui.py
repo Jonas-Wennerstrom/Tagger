@@ -330,11 +330,17 @@ def update_file(btn):
         and match.
     """
     cmd = "Update file"
-    del_file(cmd)
-    add_file(cmd)
-    app.clearEntry("New length")
-    app.clearEntry("Same title")
-    app.clearEntry("New link")
+    title = app.getEntry("Same title")
+    if file_exists(session,title):
+        del_file(cmd)
+        add_file(cmd)
+        app.clearEntry("New length")
+        app.clearEntry("Same title")
+        app.clearEntry("New link")
+    else:
+        app.setLabel("upd_file_res", "No file named "+title+" exists. "
+                     "Please use the autocomplete function, or 'Add "
+                     "file' if that is what you want to do.")
 
 ###Subwindows
 #These functions manage subwindows
@@ -396,12 +402,12 @@ def file_select_window():
 ##Menu functions
 #These functions respond to input via the menubar
 
-def new_db_window(btn):
+def new_db(btn):
     """Shows subwindow allowing creation of new database."""
     app.showSubWindow("Create database")
 
 
-def show_help_window(btn):
+def show_help(btn):
     """Shows subwindow providing usage information."""
     app.showSubWindow("Help")
 
@@ -464,7 +470,7 @@ app.stopSubWindow()
 
 #Menu creation and population
 app.createMenu("File")
-app.addMenuItem("File", "New db", new_db_window)
+app.addMenuItem("File", "New db", new_db)
 app.addMenuItem("File", "Open db...",change_db)
 app.addMenuSeparator("File")
 app.addMenuItem("File", "Clean up db", cleanup)
@@ -476,10 +482,7 @@ app.addSubMenu("Config", "Results")
 for i in range(1,6):
     app.addMenuRadioButton("Results", "max_res", str(5*i), menu_press)
 app.createMenu("About")
-app.addMenuItem("About", "Help", show_help_window)
-app.createMenu("appJar")
-app.addMenuItem("appJar", "Help", app.appJarHelp)
-app.addMenuItem("appJar", "About", app.appJarAbout)
+app.addMenuItem("About", "Help", show_help)
 
 #Setting default values to preset global values
 app.setMenuRadioButton("Propsize", "propsize", "10")

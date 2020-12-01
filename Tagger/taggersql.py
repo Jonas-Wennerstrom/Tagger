@@ -228,3 +228,10 @@ def cleanup_files(session):
         session.query(File).filter(File.id==row.id).delete()
     session.commit()
     
+##Confirm functions
+#These functions check if data exists in db
+
+def file_exists(session,title):
+    """Returns true if a file with title == title exists, else false."""
+    s = session.query(exists().where(File.title == title)).scalar()
+    return True if s else False
