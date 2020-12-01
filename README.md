@@ -11,16 +11,10 @@
   <h3 align="center">Tagger</h3>
 
   <p align="center">
-    Tagger is an application for managing and manipulating a tag-based database primarily aimed towards media (audio, video, or text).
+    Tagger is an application for managing and manipulating a tag-based database primarily aimed towards media.
     <br />
     <a href="https://github.com/Jonas-Wennerstrom/Tagger"><strong>Explore the docs »</strong></a>
     <br />
-    <br />
-    <a href="https://github.com/Jonas-Wennerstrom/Tagger">View Demo</a>
-    ·
-    <a href="https://github.com/Jonas-Wennerstrom/Tagger/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/Jonas-Wennerstrom/Tagger/issues">Request Feature</a>
   </p>
 </p>
 
