@@ -13,7 +13,7 @@
   <p align="center">
     Tagger is an application for managing and manipulating a tag-based database primarily aimed towards media.
     <br />
-    <a href="https://github.com/Jonas-Wennerstrom/Tagger"><strong>Explore the docs »</strong></a>
+    <a href="https://github.com/Jonas-Wennerstrom/Tagger/Tagger documentation"><strong>Explore the docs »</strong></a>
     <br />
   </p>
 </p>
