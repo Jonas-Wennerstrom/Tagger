@@ -11,14 +11,22 @@ class File(Base):
     length = Column(Integer)
     title = Column(String, unique=True)
     link = Column(String)
+    contains = relationship('Tag',
+                            secondary='match',
+                            back_populates='media'
+                            )
 
 class Tag(Base):
     __tablename__ = "tag"
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True)
+    media = relationship('File',
+                         secondary='match',
+                         back_populates='contains'
+                         )
 
 class Match(Base):
     __tablename__ = "match"
     id = Column(Integer, primary_key=True)
     file_id = Column(Integer, ForeignKey("file.id"))
-    tag_id = Column(Integer, ForeignKey("tag.id"))     
+    tag_id = Column(Integer, ForeignKey("tag.id"))    

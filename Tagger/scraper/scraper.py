@@ -60,6 +60,6 @@ session = Session()
 
 for i in range(len(title)):
     tagword = tag[i]
-    tagword = tagword.replace(", ", ",")
     tagword = tagword.strip()
-    insert_both(session, [length[i], title[i], link[i]], tagword)
+    taglist = tagword.split(", ")
+    insert_both(session, [length[i], title[i], link[i]], taglist)
