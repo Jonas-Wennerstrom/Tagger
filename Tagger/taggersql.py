@@ -6,7 +6,7 @@ from taggermodels import *
 ##Selection
 
 #Selects a subset of File
-def select_file(session, tagword):
+def select_file(session, taglist):
     """Returns a list of all File entries with entries in Match matching
     all tags in tagword.
 
@@ -19,44 +19,26 @@ def select_file(session, tagword):
             entries in table Match corresponding to entries in table Tag
             corresponding to all 'tags' in tagword.
     """
-    taglist = tagword.split(",")
-    q = session.query(File).filter(
-            File.id==Match.file_id).filter(
-                Match.tag_id==Tag.id).filter(
-                    Tag.name.in_(taglist)).group_by(
-                        Match.file_id).having(
-                            func.count(1) == len(taglist)).order_by(
-                                asc(File.title)).all()
-    #Effectively: Get all Tag.id for tags in taglist, find File with
-    #Matches to all of them.
-
+    q = session.query(File).join(
+        File.contains).filter(
+            Tag.name.in_(taglist)).group_by(
+                File.title).having(
+                    func.count()==len(taglist)).all()
     return q
 
+def get_tags_from_names(session,taglist):
+    return session.query(Tag).filter(Tag.name.in_(taglist)).all()
 
 def get_link(session,title):
     """Returns File.link for File.title.
-
-    Parameters:
-        session: An SQLAlchemy database session.
-        title (string): A title to be queried in session.
-
-    Returns:
-        r (string): Data in link attribute for entry in table File in
-            session with title == title.
     """
-    r =session.query(File.link).filter(File.title == title).one()
-    return r[0]
+    r =session.query(File.link).filter(
+        File.title == title).scalar()
+    return r
 
 
 def get_all_file_titles(session):
     """Returns all file.title fields in db.
-
-    Parameters:
-        session: An SQLAlchemy database session.
-
-    Returns:
-        q (list): A sorted list of all title attributes of entries in
-            table File in session.
     """
     q = session.query(File.title).all()
     return sorted(q)
@@ -64,13 +46,6 @@ def get_all_file_titles(session):
 
 def get_all_tag_names(session):
     """Returns all tag.name fields in session.
-
-    Parameters:
-        session: An SQLAlchemy database session.
-
-    Returns:
-        q (list): A sorted list of all name attributes of entries in
-            table Tag in session.
     """
     q = session.query(Tag.name).all()
     return sorted(q)
@@ -88,12 +63,9 @@ def get_all_matchs(session,title):
             coupled with id of File entry with title == title.
     """
     if title:
-        fileid = session.query(File.id).filter(
-            File.title == title).one()
-        tagq = session.query(Tag.name).filter(
-            Match.tag_id == Tag.id).filter(
-                Match.file_id == fileid[0]).order_by(
-                    asc(Tag.name)).all()
+        tagq = session.query(Tag.name).join(
+            Tag.media).filter(
+                File.title==title).all()
         return sorted(tagq)
     else:
         return
@@ -102,7 +74,7 @@ def get_all_matchs(session,title):
 
 ##Insertion
 
-def insert_file(session, fileinfo, tagword):
+def insert_file(session, fileinfo, taglist):
     """Inserts fileinfo into table File in session and entries in table
     Match for each tag in tagword coupled with the new File entry.
 
@@ -119,28 +91,22 @@ def insert_file(session, fileinfo, tagword):
             Match created coupling new File entry with each 'tag' in
             Tagword.
     """
-    unique = session.query(File).filter(~ exists().where(
-        File.title==fileinfo[1])).all()
+    unique = not file_exists(session,fileinfo[1])
     if unique:
-        file_ins = File.__table__.insert().values(
-            length=fileinfo[0], title=fileinfo[1], link=fileinfo[2])
-        result = session.execute(file_ins)
-        ins_file_id = result.lastrowid
-        session.commit()
-        taglist = tagword.split(",")
-        q = session.query(Tag.id).filter(
-                Tag.name.in_(taglist)).all()
-        for row in q:
-            match_ins = Match.__table__.insert().values(
-                file_id=ins_file_id, tag_id=row[0])
-            session.execute(match_ins)
+        q = get_tags_from_names(session,taglist)
+        new_file = File(length=fileinfo[0],
+                        title=fileinfo[1],
+                        link=fileinfo[2])
+        for t in q:
+            new_file.contains.append(t)
+        session.add(new_file)
         session.commit()
         return True
     else:
         return False
 
 
-def insert_tag (session,tagword):
+def insert_tag (session,taglist):
     """Inserts each 'tag' in tagword into table Tag in session.
 
     Parameters:
@@ -155,23 +121,23 @@ def insert_tag (session,tagword):
         New entries created in table Tag in session for each
             non-duplicate tag in tagword.
     """
-    taglist = tagword.split(",")
-    r = []
+    insert_list = []
+    skipped_list = []
     for new_tag in taglist:
-        unique = session.query(Tag).filter(~ exists().where(Tag.name==new_tag)).all()
-        if unique:
-            ins = Tag.__table__.insert().values(name=new_tag)
-            session.execute(ins)
-            session.commit()
+        if not tag_exists(session,new_tag):
+            insert_list.append(new_tag)
         else:
-            r.append(new_tag)
-    return sorted(r)
+            skipped_list.append(new_tag)
+    session.execute(Tag.__table__.insert(),
+                    [{"name": t} for t in insert_list])
+    session.commit()
+    return sorted(skipped_list)
 
 
 
 ##Deletion
 
-def delete_tag(session,tagword):
+def delete_tag(session,taglist):
     """Deletes all 'tags' in tagword from session.
 
     Parameters:
@@ -184,12 +150,9 @@ def delete_tag(session,tagword):
         All entries in table Match in session matching tags in
             tagword deleted.
     """
-    taglist = tagword.split(",")
-    q = session.query(Tag.id).filter(
-            Tag.name.in_(taglist)).all()
+    q = get_tags_from_names(session,taglist)
     for row in q:
-        session.query(Tag).filter(Tag.id == row[0]).delete()
-        session.query(Match).filter(Match.tag_id == row[0]).delete()
+        session.delete(row)
     session.commit()
 
 
@@ -205,9 +168,8 @@ def delete_file(session,title):
         All entries in table Match in session matching File.title
             deleted.
     """
-    fileid = session.query(File.id).filter(File.title == title).scalar()
-    session.query(File).filter(File.id == fileid).delete()
-    session.query(Match).filter(Match.file_id == fileid).delete()
+    file = session.query(File).filter(File.title == title).scalar()
+    session.delete(file)
     session.commit()
 
 
@@ -222,11 +184,11 @@ def cleanup_files(session):
         All entries in table File whose id do not exist in Match.file_id
             deleted.
     """
-    s = session.query(File).filter(~ exists().where(
-        Match.file_id==File.id)).all()
-    for row in s:
-        session.query(File).filter(File.id==row.id).delete()
-    session.commit()
+    s = session.query(File.id).filter(~File.contains.any()).all()
+    if s:
+        session.execute(File.__table__.delete(),
+                        [{"id": t[0]} for t in s])
+        session.commit()
     
 ##Confirm functions
 #These functions check if data exists in db
@@ -234,4 +196,9 @@ def cleanup_files(session):
 def file_exists(session,title):
     """Returns true if a file with title == title exists, else false."""
     s = session.query(exists().where(File.title == title)).scalar()
-    return True if s else False
+    return s
+
+def tag_exists(session,name):
+    """Returns true if a tag with name == name exists, else fales"""
+    s = session.query(exists().where(Tag.name == name)).scalar()
+    return s

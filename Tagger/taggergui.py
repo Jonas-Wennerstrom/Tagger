@@ -4,6 +4,7 @@
 ## A database management system and GUI.
 ##
 ## Author: Jonas Wennerström
+## https://github.com/Jonas-Wennerstrom
 ########################
 
 import os.path
@@ -20,19 +21,29 @@ from taggercreatedb import *
 
 
 
-##Global variables. 
+###Global variables.
+#Max number of Properties shown in each tab.
 MAX_PROPS = 10
+#Window size on launch
 WINDOW_SIZE = "900x600"
+#Column of main button positions
 BUTTON_POS = 2
+#All tag table 'names'
 TAG_TABLE_PREFIXES = ["Tags to match","Tags to filter",
                       "Tags to delete", "New matched tags"]
+#All auto-entries containing all file names
 AUTO_ENTRIES = ["Remove file","Same title"]
-#Alterable from GUI
+##Alterable from GUI
+#Max results shown on result screen
 MAX_RESULTS = 15
+#Max number of entries in each Property
 MAX_PROPSIZE = 10
+#To be dfined through userselection of db file
+session = None
 
 #Initializiation of GUI
 app = gui()
+
 
 ###Aux functions
 
@@ -44,6 +55,9 @@ def list_files():
     """Returns a list of all file.name from the db in the current
     session.
     """
+    if not session:
+        no_session_warning()
+        return None
     r = []
     q_res = get_all_file_titles(session)
     for row in q_res:
@@ -51,25 +65,34 @@ def list_files():
     return r
 
 
-def stringify_ticked(prop_title):
-    """Returns a string of all ticked values in Properties with titles
-    beginning with prop_title separated by ','.
+def listify_ticked(prop_title):
+    """Returns a list of all ticked values in Properties with titles
+    beginning with prop_title.
 
     Parameters:
         prop_title (str): Prefix of properties inspected.
 
     Returns:
-        word (str): String of all 'ticked' values separated by ','
+        taglist (str list): List of all 'ticked' values.
     """
-    dict = {}
-    word = ""
+    if not session:
+        no_session_warning()
+        return None
+    taglist = []
+    if prop_title not in TAG_TABLE_PREFIXES:
+        raise Exception("Invalid argument: Value of prop_titles was: "
+                        "{}".format(prop_titles))
     for i in range(MAX_PROPS):
         tdict = app.getProperties(prop_title + str(i))
-        dict.update(tdict)
-    for x in dict:
-        if dict.get(x):
-            word = word + x + ","
-    return word[:-1]
+        for x in tdict:
+            if tdict.get(x):
+                taglist.append(x)
+    return taglist
+
+def update_auto_entries():
+    """Updates all auto entries in the GUI to contain all file titles."""
+    for i in AUTO_ENTRIES:
+        app.changeAutoEntry(i,list_files())
 
 
 
@@ -89,6 +112,9 @@ def open_file(title):
     Side-effect:
         Calls on os to open link provided in db if one exists.
     """
+    if not session:
+        no_session_warning()
+        return None
     path = get_link(session,title)
     if path and path != " ":
         startfile(path)
@@ -103,24 +129,17 @@ def path_leaf(path):
     return tail or ntpath.basename(head)
 
 
-def close():
-    """Performs all final cleanup before program terminates."""
-    session.close()
-    return True
-    #Expected by appJar to ensure completion
-
-
 def make_tag_tables():
     """Empties and repopulates all Properties.
 
     Side-effects:
         Updates GUI Properties with and Message 'existing_tags'
     """
+    if not session:
+        no_session_warning()
+        return None
     tdict = {}
-    tlist = []
-    q = get_all_tag_names(session)
-    for i in q:
-        tlist.append(i)
+    tlist = get_all_tag_names(session)
     tmp = "Existing tags:\n"
     for i in tlist:
         tmp = tmp + i[0] + "\n"
@@ -141,6 +160,7 @@ def make_tag_tables():
                 app.deleteProperty(curr_title,p)
             app.setProperties(curr_title, tdict)
         tdict.clear()
+        #Note: appJar makes a copy of tdict within Properties
     for i in range(num_properties,MAX_PROPS):
         for t in TAG_TABLE_PREFIXES:
             curr_title = t+str(i)
@@ -155,13 +175,16 @@ def make_tag_tables():
 ##Inspection
 
 def lookup_file():
-    """Uses stringify_ticked and select_file to query the session
+    """Uses listify_ticked and select_file to query the session
     database. Returns all file information for all files tagged
     with tags selected in Properties prefixed with
     'Tags to filter'.
     """
-    tagword = stringify_ticked("Tags to filter")
-    files = select_file(session,tagword)
+    if not session:
+        no_session_warning()
+        return None
+    taglist = listify_ticked("Tags to filter")
+    files = select_file(session,taglist)
     return files
 
 
@@ -179,47 +202,60 @@ def add_file(btn):
         or failure to user. Updates AutoEntries 'Remove file',
         "Same title" on success if btn == "Add file".
     """
+    if not session:
+        no_session_warning()
+        return None
+    add_dict = {
+        "Length": "Length",
+        "Title": "Title",
+        "Link": "Link",
+        "Label": "add_file_res",
+        "Prefix": "Tags to match"
+        }
+    upd_dict = {
+        "Length": "New length",
+        "Title": "Same title",
+        "Link": "New link",
+        "Label": "upd_file_res",
+        "Prefix": "New matched tags"
+        }
     if btn == "Add file":
-        length_entry = "Length"
-        title_entry = "Title"
-        link_entry = "Link"
-        res_label = "add_file_res"
-        props_prefix = "Tags to match"
+        curr_dict = add_dict
     elif btn == "Update file":
-        length_entry = "New length"
-        title_entry = "Same title"
-        link_entry = "New link"
-        res_label = "upd_file_res"
-        props_prefix = "New matched tags"
-    file_length = app.getEntry(length_entry)
+        curr_dict = upd_dict
+    else:
+        raise Exception("Invalid argument: Value of btn was: "
+                        "{}".format(btn))
+    file_length = app.getEntry(curr_dict["Length"])
     if not file_length:
         file_length = 0
-    file_title = app.getEntry(title_entry)
+    file_title = app.getEntry(curr_dict["Title"])
     if not file_title:
-        app.setLabel(res_label, "Please include a title.")
+        app.setLabel(curr_dict["Label"], "Please include a title.")
         return None
-    file_link = app.getEntry(link_entry)
+    file_link = app.getEntry(curr_dict["Link"])
     if not file_link:
         file_link = " "
-    word = stringify_ticked(props_prefix)
+    word = listify_ticked(curr_dict["Prefix"])
     if word == "":
-        app.setLabel(res_label, "Please ensure the file is tagged.")
+        app.setLabel(curr_dict["Label"],
+                     "Please ensure the file is tagged.")
     else:
         inserted = insert_file(session,
-                               [file_length,file_title,file_link],word)
+                               [file_length,file_title,file_link],
+                               word)
         if inserted: 
-            app.clearEntry(length_entry)
-            app.clearEntry(title_entry)
-            app.clearEntry(link_entry)
+            app.clearEntry(curr_dict["Length"])
+            app.clearEntry(curr_dict["Title"])
+            app.clearEntry(curr_dict["Link"])
             for i in range (MAX_PROPS):
-                app.clearProperties(props_prefix + str(i))
+                app.clearProperties(curr_dict["Prefix"] + str(i))
             if btn == "Add file":
-                for i in AUTO_ENTRIES:
-                    app.changeAutoEntry(i,list_files())
-            app.setLabel(res_label, file_title +
+                update_auto_entries()
+            app.setLabel(curr_dict["Label"], file_title +
                          " successfully added.")
         else:
-            app.setLabel(res_label, "A file with that title "
+            app.setLabel(curr_dict["Label"], "A file with that title "
                          "already exists. Please change the title.")
 
 
@@ -229,9 +265,12 @@ def add_tag(btn):
 
     btn is not used; it is built-in appJar functionality.
     """
+    if not session:
+        no_session_warning()
+        return None
     app.setLabel("add_tag_dupes", "")
-    tagword = app.getEntry("new_tags")
-    dupes = insert_tag(session,tagword)
+    taglist = app.getEntry("new_tags")
+    dupes = insert_tag(session,taglist)
     app.clearEntry("new_tags")
     app.setLabel("add_tag_result", "Tags added.")
     if dupes:
@@ -252,24 +291,36 @@ def del_file(btn):
     """Deletes entry in database with file.title == value in Entry
     decided by btn. Possibly updates 'Remove file'.
     """
+    if not session:
+        no_session_warning()
+        return None
     delete = "Delete file"
     update = "Update file"
     if btn == delete:
         title_entry = "Remove file"
-    if btn == update:
+    elif btn == update:
         title_entry = "Same title"
+    else:
+        raise Exception("Invalid argument: Value of btn was: {}".format(btn))
     title = app.getEntry(title_entry)
     if btn == delete:
         confirm = app.yesNoBox("Delete file?", "Are you sure you want "
                                "to delete the file " + title + "?")
     if btn == update:
-        confirm = True
+        confirm = app.yesNoBox("Update file?", "Are you sure you want "
+                               "to update the file " + title + "?")
     if confirm:
-        delete_file(session,title)
-        if btn == delete:
-            for i in AUTO_ENTRIES:
-                app.changeAutoEntry(i,list_files())
-            app.clearEntry(title_entry)
+        if file_exists(session,title):
+            delete_file(session,title)
+            if btn == delete:
+                update_auto_entries()
+                app.clearEntry(title_entry)
+                app.setLabel("del_file_res", title+" deleted.")
+        else:
+            if btn == delete:
+                app.setLabel("del_file_res", "No file with title "
+                             +title+" exists. Please use the "
+                             "autocomplete function.")
 
     
 def del_tag(btn):
@@ -278,15 +329,47 @@ def del_tag(btn):
 
     btn is not used; it is built-in appJar functionality.
     """
-    tagword = stringify_ticked("Tags to delete")
-    confirm = app.yesNoBox("Delete tags?", "Are you sure you want to"
-                           "delete the tags " + tagword+"?")
+    if not session:
+        no_session_warning()
+        return None
+    taglist = listify_ticked("Tags to delete")
+    confirm = app.yesNoBox("Delete tags?", "Are you sure you want to "
+                           "delete the tags " + taglist+"?")
     if confirm:
-        delete_tag(session,tagword)
+        delete_tag(session,taglist)
         make_tag_tables()
     else:
          for i in range(MAX_PROPS):
             app.clearProperties("Tags to delete"+str(i))
+
+##Update
+#Updates a file though destruction and creation
+def update_file(btn):
+    """Calls del_file and add_file to effectively update entry with
+    file.title chosen by user in GUI.
+
+    Parameters:
+        btn(string): Button pushed by user. Not used.
+
+    Side-effects:
+        Deletes entries in file and match. Creates new entries in file
+        and match.
+    """
+    if not session:
+        no_session_warning()
+        return None
+    cmd = "Update file"
+    title = app.getEntry("Same title")
+    if file_exists(session,title):
+        del_file(cmd)
+        add_file(cmd)
+        app.clearEntry("New length")
+        app.clearEntry("Same title")
+        app.clearEntry("New link")
+    else:
+        app.setLabel("upd_file_res", "No file named "+title+" exists. "
+                     "Please use the autocomplete function, or 'Add "
+                     "file' if that is what you want to do.")
 
 ##Database management
 #These functions handle basic database management taks.
@@ -295,7 +378,11 @@ def cleanup(btn):
 
     btn is not used; it is built-in appJar functionality.
     """
+    if not session:
+        no_session_warning()
+        return None
     cleanup_files(session)
+    update_auto_entries()
 
 
 def create_db(btn):
@@ -316,31 +403,13 @@ def create_db(btn):
         app.clearEntry("Database name:")
         app.setLabel("db_res", "Database "+title+" created.")
 
-##Update
-#Updates a file though destruction and creation
-def update_file(btn):
-    """Calls del_file and add_file to effectively update entry with
-    file.title chosen by user in GUI.
-
-    Parameters:
-        btn(string): Button pushed by user. Not used.
-
-    Side-effects:
-        Deletes entries in file and match. Creates new entries in file
-        and match.
-    """
-    cmd = "Update file"
-    title = app.getEntry("Same title")
-    if file_exists(session,title):
-        del_file(cmd)
-        add_file(cmd)
-        app.clearEntry("New length")
-        app.clearEntry("Same title")
-        app.clearEntry("New link")
-    else:
-        app.setLabel("upd_file_res", "No file named "+title+" exists. "
-                     "Please use the autocomplete function, or 'Add "
-                     "file' if that is what you want to do.")
+def close():
+    """Performs all final cleanup before program terminates."""
+    global session
+    if session:
+        session.close()
+    return True
+    #Expected by appJar to ensure completion
 
 ###Subwindows
 #These functions manage subwindows
@@ -350,6 +419,9 @@ def play_window():
     matching user query using Properties prefixed by 'Tags to filter'.
     Number of results shown limited by settings.
     """
+    if not session:
+        no_session_warning()
+        return None
     app.openSubWindow("Play file")
     app.emptyCurrentContainer()
     fileinfo = lookup_file()
@@ -374,7 +446,7 @@ def play_window():
                     msg_string = msg_string + tag[0] + "\n"
             app.setMessage(msg_title, msg_string)
             app.stopToggleFrame()
-            if i >= (MAX_RESULTS+2):
+            if i >= (MAX_RESULTS+1):
                 app.addLabel("play_warning", "Too many results! "
                              "Showing first "+str(MAX_RESULTS),i+1,0,3)
                 app.setLabelFg("play_warning", "red")
@@ -397,7 +469,11 @@ def file_select_window():
         app.setEntry("Title",title)
         app.setEntry("Link",path)
 
-
+def no_session_warning():
+    """Opens a window informing the user of the need to select a db."""
+    app.errorBox("Select a .db file!", "Please use the 'File' menu to "
+                 "open a database file. If you do not have one, you "
+                 "can make one from the same menu.")
 
 ##Menu functions
 #These functions respond to input via the menubar
@@ -416,15 +492,15 @@ def change_db(btn):
     """Prompts user to open .db file, creates a session, and populates
     GUI, preparing it for use."""
     global session
+    if session:
+        session.close()
     db = app.openBox("Select database", fileTypes=[('databases','*.db')])
     engine = create_engine("sqlite:///"+db)
     Session = sessionmaker()
     Session.configure(bind=engine)
     session = Session()
     make_tag_tables()
-    filetitles = list_files()
-    for i in AUTO_ENTRIES:
-        app.changeAutoEntry(i,filetitles)
+    update_auto_entries()
     filename = path_leaf(db)
     app.setTitle("Tagger: "+filename)
 
@@ -432,6 +508,9 @@ def change_db(btn):
 def menu_press(btn):
     """Handles user changes to display settings (number of tags in each
     list, max number of results shown). Invoked from menu."""
+    if not session:
+        no_session_warning()
+        return None
     if btn == "propsize":
         val = app.getMenuRadioButton("Propsize", "propsize")
         global MAX_PROPSIZE
@@ -441,18 +520,16 @@ def menu_press(btn):
         val = app.getMenuRadioButton("Results", "max_res")
         global MAX_RESULTS
         MAX_RESULTS = int(val)
+    else:
+        raise Exception("Invalid argument: Value of btn was: {}".format(btn))
 
-
-
-#####START OF BOOT SEQUENCE
-
-app.setTitle("Tagger")
-app.setSize(WINDOW_SIZE)
+##Creation of subwindows
+#Initialization of various popups.
 
 #Creation of window to show and play files
 app.startSubWindow("Play file")
 app.addLabel("")
-#Necessary for window to be created
+#Necessary to supress appJar warning
 app.stopSubWindow()
 
 #Creation of window to create new .db file
@@ -467,6 +544,13 @@ app.addLabelEntry("Database name:",1,0)
 app.addButton("Make DB", create_db,1,1)
 app.addLabel("db_res", " ",2,0,2)
 app.stopSubWindow()
+
+
+#####START OF BOOT SEQUENCE
+
+app.setTitle("Tagger")
+app.setSize(WINDOW_SIZE)
+
 
 #Menu creation and population
 app.createMenu("File")
@@ -490,12 +574,11 @@ app.setMenuRadioButton("Results", "max_res", "15")
 
 #Start of main window contents
 app.startTabbedFrame("tabbed_frame")
-tdict = {}
 
 #Tab: Lookup files
 app.startTab("Find file")
 for i in range (MAX_PROPS):
-    app.addProperties("Tags to filter" + str(i), tdict, 0, i)
+    app.addProperties("Tags to filter" + str(i), {}, 0, i)
 app.addButton("Show results", play_window,1,BUTTON_POS)
 app.stopTab()
 
@@ -506,7 +589,7 @@ app.addLabelEntry("Title",0,1)
 app.addLabelEntry("Link",0,2)
 app.addButton("Choose file",file_select_window,2,0)
 for i in range (MAX_PROPS):
-    app.addProperties("Tags to match" + str(i), tdict, 1,i)
+    app.addProperties("Tags to match" + str(i), {}, 1,i)
 app.addButton("Add file",add_file,2,BUTTON_POS)
 app.addLabel("add_file_res", "", 3,0,4)
 app.stopTab()
@@ -533,7 +616,7 @@ app.addLabelAutoEntry("Same title",[""],0,1)
 app.addLabelEntry("New link",0,2)
 app.addButton("Get link from file",file_select_window,2,0)
 for i in range (MAX_PROPS):
-    app.addProperties("New matched tags" + str(i), tdict, 1,i)
+    app.addProperties("New matched tags" + str(i), {}, 1,i)
 app.addButton("Update file",update_file,2,BUTTON_POS)
 app.addLabel("upd_file_res", "", 3,0,4)
 app.stopTab()
@@ -546,13 +629,13 @@ app.addLabel("delfileExp","Deletes selected file and all matches. "
 app.addLabelAutoEntry("Remove file",[""],1,0)
 app.setEntryWidth("Remove file",40)
 app.addButton("Delete file",del_file,1,1)
-app.addButton("Cleanup", cleanup)
+app.addLabel("del_file_res", "")
 app.stopTab()
 
 #Tab: Delete tag
 app.startTab("Remove tag")
 for i in range (MAX_PROPS):
-    app.addProperties("Tags to delete" + str(i), tdict, 0, i)
+    app.addProperties("Tags to delete" + str(i), {}, 0, i)
 app.addButton("Delete tags",del_tag,1,BUTTON_POS)
 app.stopTab()
 
