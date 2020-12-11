@@ -13,7 +13,7 @@ import math
 from os import startfile
 
 from appJar import gui
-from sqlalchemy import create_engine, func, asc
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from taggersql import *
@@ -33,12 +33,14 @@ TAG_TABLE_PREFIXES = ["Tags to match","Tags to filter",
                       "Tags to delete", "New matched tags"]
 #All auto-entries containing all file names
 AUTO_ENTRIES = ["Remove file","Same title"]
+#Used to store File title: File link to reduce SQL queries
+FILE_DICT = {}
 ##Alterable from GUI
-#Max results shown on result screen
-MAX_RESULTS = 15
 #Max number of entries in each Property
 MAX_PROPSIZE = 10
-#To be dfined through userselection of db file
+#How play_window will display results
+DISPLAY_OPTION = "Overview"
+#To be defined through user selection of db file
 session = None
 
 #Initializiation of GUI
@@ -89,6 +91,7 @@ def listify_ticked(prop_title):
                 taglist.append(x)
     return taglist
 
+
 def update_auto_entries():
     """Updates all auto entries in the GUI to contain all file titles."""
     for i in AUTO_ENTRIES:
@@ -104,10 +107,7 @@ def open_file(title):
     corresponding link.
 
     Parameters:
-        title(string): Query to be passed to db.
-
-    Returns:
-        None
+        title(string): File title to be queried in db.
 
     Side-effect:
         Calls on os to open link provided in db if one exists.
@@ -115,12 +115,48 @@ def open_file(title):
     if not session:
         no_session_warning()
         return None
-    path = get_link(session,title)
+    global FILE_DICT
+    if title.startswith("Open the file "):
+        title = title[len("Open the file "):]
+    fileinfo = FILE_DICT[title]
+    path = fileinfo.link
     if path and path != " ":
         startfile(path)
     else:
         app.errorBox("No link", "There is no link to '"+title+"'.",
                      parent="Play file")
+
+
+def inspect_file(title):
+    """Shows information of a single file. Information collected from "
+    FILE_DICT[title]. 
+    """
+    global FILE_DICT
+    fileinfo = FILE_DICT[title]
+    app.openSubWindow("Inspect file")
+    app.emptyCurrentContainer()
+    linktitle = "Open the file "+title
+    app.addLabel("insp_l", "Length", 0,0)
+    app.addLabel("insp_tl", "Title", 0,1)
+    app.addLabel("insp_tg", "Tags", 0,2)
+    app.addLabel(title+"insp_l", fileinfo.length,1,0)
+    app.addLink("Open the file "+title,open_file,1,1)
+    tag_res = fileinfo.contains
+    msg_title = "All "+linktitle+" tags"
+    app.addEmptyMessage(msg_title,1,2)
+    msg_list = []
+    for tag in tag_res:
+        msg_list.append(tag.name)
+        msg_list.append("\n")
+    msg_list.pop()
+    msg_string = ''.join(msg_list)
+    app.setMessage(msg_title, msg_string)
+    app.setMessageAlign(msg_title, "left")
+    app.setMessageWidth(msg_title,200)
+    app.setLabelAlign(title+"insp_l","right")
+    app.setLinkAlign(linktitle, "left")
+    app.stopSubWindow()
+    app.showSubWindow("Inspect file")
 
     
 def path_leaf(path):
@@ -236,14 +272,14 @@ def add_file(btn):
     file_link = app.getEntry(curr_dict["Link"])
     if not file_link:
         file_link = " "
-    word = listify_ticked(curr_dict["Prefix"])
-    if word == "":
+    tags = listify_ticked(curr_dict["Prefix"])
+    if tags == "":
         app.setLabel(curr_dict["Label"],
                      "Please ensure the file is tagged.")
     else:
         inserted = insert_file(session,
                                [file_length,file_title,file_link],
-                               word)
+                               tags)
         if inserted: 
             app.clearEntry(curr_dict["Length"])
             app.clearEntry(curr_dict["Title"])
@@ -252,11 +288,15 @@ def add_file(btn):
                 app.clearProperties(curr_dict["Prefix"] + str(i))
             if btn == "Add file":
                 update_auto_entries()
-            app.setLabel(curr_dict["Label"], file_title +
+                app.setLabel(curr_dict["Label"], file_title +
                          " successfully added.")
+            elif btn == "Update file":
+                app.setLabel(curr_dict["Label"], file_title +
+                             " successfully updated.")
         else:
             app.setLabel(curr_dict["Label"], "A file with that title "
                          "already exists. Please change the title.")
+            #Note: Update will already have deleted entry.
 
 
 def add_tag(btn):
@@ -321,6 +361,7 @@ def del_file(btn):
                 app.setLabel("del_file_res", "No file with title "
                              +title+" exists. Please use the "
                              "autocomplete function.")
+                #Note: Update will already have checked existence.
 
     
 def del_tag(btn):
@@ -417,45 +458,71 @@ def close():
 def play_window():
     """Empties, populates and opens a popup showing details of files
     matching user query using Properties prefixed by 'Tags to filter'.
-    Number of results shown limited by settings.
+    Button "Show results" temporarily disabled while function is 
+    executing.
     """
     if not session:
         no_session_warning()
         return None
-    app.openSubWindow("Play file")
+    global FILE_DICT
+    global DISPLAY_OPTION
+    app.disableButton("Show results")
+    FILE_DICT.clear()
+    app.openScrollPane("play_results")
     app.emptyCurrentContainer()
-    fileinfo = lookup_file()
-    if fileinfo:
-        i = 2
+    app.setStretch('both')
+    app.setSticky('nesw')
+    if DISPLAY_OPTION == "Overview":
         app.addLabel("pwLength", "Length",0,0)
         app.addLabel("pwTitle", "Title", 0,1)
         app.addLabel("pwTags","Tags",0,2)
         app.addHorizontalSeparator(1,0,3)
+    elif DISPLAY_OPTION == "Speed":
+        app.addLabel("pwTitle", "Title", 0,0)
+    fileinfo = lookup_file()
+    if fileinfo:
+        i = 2
         for row in fileinfo:
             title = row.title
-            app.addLabel(title+"L", row.length,i,0)
-            app.addLink(title,open_file,i,1)
-            app.setLinkAlign(title, "left")
-            app.startToggleFrame(title+" tags",i,2)
-            tag_res = get_all_matchs(session,title)
-            msg_title = "All "+title+" tags"
-            app.addEmptyMessage(msg_title)
-            msg_string = ""
-            if tag_res:
+            FILE_DICT[title] = row
+            #Used by open_file to prevent future SQL query
+            if DISPLAY_OPTION == "Overview":
+                app.addLabel(title+"L", row.length,i,0)
+                app.addLink(title,open_file,i,1)
+                tag_res = row.contains
+                msg_title = "All "+title+" tags"
+                app.addEmptyMessage(msg_title,i,2)
+                msg_list = []
                 for tag in tag_res:
-                    msg_string = msg_string + tag[0] + "\n"
-            app.setMessage(msg_title, msg_string)
-            app.stopToggleFrame()
-            if i >= (MAX_RESULTS+1):
-                app.addLabel("play_warning", "Too many results! "
-                             "Showing first "+str(MAX_RESULTS),i+1,0,3)
-                app.setLabelFg("play_warning", "red")
-                break
-            i = i+1
+                    msg_list.append(tag.name)
+                    msg_list.append("\n")
+                msg_list.pop()
+                msg_string = ''.join(msg_list)
+                app.setMessage(msg_title, msg_string)
+                #Styling
+                if i%2 == 0:
+                    app.setLabelBg(title+"L", "NavajoWhite")
+                    app.setMessageBg(msg_title, "NavajoWhite")
+                app.setMessageWidth(msg_title,200)
+                app.setMessageAlign(msg_title, "left")
+                app.setLabelAlign(title+"L","right")
+                app.setLabelWidth(title+"L",10)
+                app.setLinkWidth(title,70)
+            elif DISPLAY_OPTION == "Speed":
+                app.addLink(title,inspect_file,i,0)
+            if i%2 == 0:
+                app.setLinkBg(title, "NavajoWhite")
+            app.setLinkAlign(title, "left")
+                
+            i += 1
+        app.addLabel("play_window_res",
+                     "Files found: "+str(len(fileinfo)),
+                     column=1)
     else:
         app.addLabel("no_result", "No files found!")
         app.setLabelFg("no_result", "red")
-    app.stopSubWindow()
+    app.stopScrollPane()
+    app.enableButton("Show results")
     app.showSubWindow("Play file")
 
 
@@ -516,10 +583,10 @@ def menu_press(btn):
         global MAX_PROPSIZE
         MAX_PROPSIZE = int(val)
         make_tag_tables()
-    elif btn == "max_res":
-        val = app.getMenuRadioButton("Results", "max_res")
-        global MAX_RESULTS
-        MAX_RESULTS = int(val)
+    elif btn == "option":
+        val = app.getMenuRadioButton("Display","option")
+        global DISPLAY_OPTION
+        DISPLAY_OPTION = val
     else:
         raise Exception("Invalid argument: Value of btn was: {}".format(btn))
 
@@ -528,12 +595,24 @@ def menu_press(btn):
 
 #Creation of window to show and play files
 app.startSubWindow("Play file")
-app.addLabel("")
-#Necessary to supress appJar warning
+app.setBg("Honeydew")
+app.startScrollPane("play_results",0,0,colspan=3,
+                    sticky='nsew',disabled='horizontal')
+app.stopScrollPane()
+app.setScrollPaneHeight("play_results",600)
+app.setScrollPaneWidth("play_results",900)
+app.stopSubWindow()
+
+#Creation of window to inspect single file
+app.startSubWindow("Inspect file")
+app.setSize("900x100")
+app.setBg("Honeydew")
+app.setStretch("none")
 app.stopSubWindow()
 
 #Creation of window to create new .db file
 app.startSubWindow("Create database")
+app.setBg("Honeydew")
 app.setSticky("nw")
 app.setStretch("none")
 app.addMessage("db_exp", "Write title of the new database (no file "
@@ -562,15 +641,15 @@ app.createMenu("Config")
 app.addSubMenu("Config", "Propsize")
 for i in range(1,6):
     app.addMenuRadioButton("Propsize", "propsize", str(5*i), menu_press)
-app.addSubMenu("Config", "Results")
-for i in range(1,6):
-    app.addMenuRadioButton("Results", "max_res", str(5*i), menu_press)
+app.addSubMenu("Config", "Display")
+app.addMenuRadioButton("Display", "option", "Speed", menu_press)
+app.addMenuRadioButton("Display", "option", "Overview", menu_press)
 app.createMenu("About")
 app.addMenuItem("About", "Help", show_help)
 
 #Setting default values to preset global values
 app.setMenuRadioButton("Propsize", "propsize", "10")
-app.setMenuRadioButton("Results", "max_res", "15")
+app.setMenuRadioButton("Display", "option", "Overview")
 
 #Start of main window contents
 app.startTabbedFrame("tabbed_frame")
@@ -642,9 +721,10 @@ app.stopTab()
 app.stopTabbedFrame()
 
 
+
 ###Start of help window
 app.startSubWindow("Help")
-app.setBg("white")
+app.setBg("Honeydew")
 app.setSticky("nw")
 app.startTabbedFrame("help_tabs")
 app.startTab("General info")
@@ -749,22 +829,25 @@ app.stopSubWindow()
 ###End of help window
 
 
+
 #Styling, main window
-app.setBg("white")
+app.setBg("Honeydew")
+app.setTabbedFrameTabExpand("tabbed_frame")
+app.setTabbedFrameInactiveBg("tabbed_frame","DarkCyan")
 tab_names = ["Find file", "Add file", "Add tags", "Remove file",
              "Remove tag"]
 entries = app.getAllEntries()
 for i in tab_names:
-    app.setTabBg("tabbed_frame", i, "white")
+    app.setTabBg("tabbed_frame", i, "Honeydew")
 for i in entries:
-    app.setEntryBg(i,"lightgrey")
+    app.setEntryBg(i,"Snow")
 
 #Styling, help window
 help_tab_names = ["General info", "Database info", "Finding files",
                   "Adding files", "Adding tags", "Updating files",
                   "Deleting files","Deleting tags"]
 for i in help_tab_names:
-    app.setTabBg("help_tabs", i, "white")
+    app.setTabBg("help_tabs", i, "Honeydew")
 app.setMessageFg("deleting_tags_warn", "red")
 app_messgs = ["general_1","databases_1","finding_1","adding_files_1",
               "adding_tags_1","updating_files_1","deleting_files_1",

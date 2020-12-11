@@ -50,27 +50,6 @@ def get_all_tag_names(session):
     q = session.query(Tag.name).all()
     return sorted(q)
 
-def get_all_matchs(session,title):
-    """Returns all tag.name entries in session with Match entries
-    linked with File.title.
-
-    Parameters:
-        session: An SQLAlchemy database session.
-
-    Returns:
-        q (list): A sorted list of all name attributes of entries in
-            table Tag in session which also have entries in table Match
-            coupled with id of File entry with title == title.
-    """
-    if title:
-        tagq = session.query(Tag.name).join(
-            Tag.media).filter(
-                File.title==title).all()
-        return sorted(tagq)
-    else:
-        return
-
-
 
 ##Insertion
 
@@ -168,8 +147,7 @@ def delete_file(session,title):
         All entries in table Match in session matching File.title
             deleted.
     """
-    file = session.query(File).filter(File.title == title).scalar()
-    session.delete(file)
+    session.query(File).filter(File.title == title).delete()
     session.commit()
 
 
@@ -199,6 +177,6 @@ def file_exists(session,title):
     return s
 
 def tag_exists(session,name):
-    """Returns true if a tag with name == name exists, else fales"""
+    """Returns true if a tag with name == name exists, else false"""
     s = session.query(exists().where(Tag.name == name)).scalar()
     return s
