@@ -8,16 +8,16 @@ from taggermodels import *
 #Selects a subset of File
 def select_file(session, taglist):
     """Returns a list of all File entries with entries in Match matching
-    all tags in tagword.
+    all tags in taglist.
 
     Parameters:
         session: An SQLAlchemy database session.
-        tagword (string): A string of 'tags' separated by ','.
+        taglist (string list): A list of tag names.
 
     Returns:
         q (SQLAlchemy object): Information on entries in table File with
             entries in table Match corresponding to entries in table Tag
-            corresponding to all 'tags' in tagword.
+            corresponding to all 'tags' in taglist.
     """
     q = session.query(File).join(
         File.contains).filter(
@@ -27,40 +27,40 @@ def select_file(session, taglist):
     return q
 
 def get_tags_from_names(session,taglist):
+    """Returns all tag objects with Tag.name in taglist.
+    """
     return session.query(Tag).filter(Tag.name.in_(taglist)).all()
 
-def get_link(session,title):
-    """Returns File.link for File.title.
+
+def get_file(session,title):
+    """Returns file object with File.title == title.
     """
-    r =session.query(File.link).filter(
+    return session.query(File).filter(
         File.title == title).scalar()
-    return r
 
 
 def get_all_file_titles(session):
-    """Returns all file.title fields in db.
+    """Returns all file.title fields in session.
     """
-    q = session.query(File.title).all()
-    return sorted(q)
+    return session.query(File.title).all()
 
 
 def get_all_tag_names(session):
     """Returns all tag.name fields in session.
     """
-    q = session.query(Tag.name).all()
-    return sorted(q)
+    return session.query(Tag.name).all()
 
 
 ##Insertion
 
 def insert_file(session, fileinfo, taglist):
     """Inserts fileinfo into table File in session and entries in table
-    Match for each tag in tagword coupled with the new File entry.
+    Match for each tag in taglist coupled with the new File entry.
 
     Parameters:
         session: An SQLAlchemy database session.
         fileinfo (list): Length, Title, Link to be entered into session.
-        tagword (string): A string of 'tags' separated by ','.
+        taglist (string list): A list of tag names.
 
     Returns:
         True if insertion was successful, else False.
@@ -68,7 +68,7 @@ def insert_file(session, fileinfo, taglist):
     Side-effects:
         Entry in table File created with fileinfo. Entries in table
             Match created coupling new File entry with each 'tag' in
-            Tagword.
+            taglist.
     """
     unique = not file_exists(session,fileinfo[1])
     if unique:
@@ -86,19 +86,19 @@ def insert_file(session, fileinfo, taglist):
 
 
 def insert_tag (session,taglist):
-    """Inserts each 'tag' in tagword into table Tag in session.
+    """Inserts each 'tag' in taglist into table Tag in session.
 
     Parameters:
         session: An SQLAlchemy database session.
-        tagword (string):  A string of 'tags' separated by ','.
+        taglist (string list):  A list of tag names.
 
     Returns:
-        q (list): A sorted list of all tags in Tagword which already
+        q (list): A sorted list of all tags in taglist which already
             exist in table Tag.
 
     Side-effects:
         New entries created in table Tag in session for each
-            non-duplicate tag in tagword.
+            non-duplicate tag in taglist.
     """
     insert_list = []
     skipped_list = []
@@ -117,21 +117,20 @@ def insert_tag (session,taglist):
 ##Deletion
 
 def delete_tag(session,taglist):
-    """Deletes all 'tags' in tagword from session.
+    """Deletes all 'tags' in taglist from session.
 
     Parameters:
         session: An SQLAlchemy database session.
-        tagword (string):  A string of 'tags' separated by ','.
+        taglist (string list):  A list of tag names.
 
     Side-effects:
-        All entries in table Tag in session with name in tagword
+        All entries in table Tag in session with name in taglist
             deleted.
         All entries in table Match in session matching tags in
-            tagword deleted.
+            taglist deleted.
     """
-    q = get_tags_from_names(session,taglist)
-    for row in q:
-        session.delete(row)
+    for t in taglist:
+        session.query(Tag.name==t).delete()
     session.commit()
 
 
@@ -173,10 +172,8 @@ def cleanup_files(session):
 
 def file_exists(session,title):
     """Returns true if a file with title == title exists, else false."""
-    s = session.query(exists().where(File.title == title)).scalar()
-    return s
+    return session.query(exists().where(File.title == title)).scalar()
 
 def tag_exists(session,name):
     """Returns true if a tag with name == name exists, else false"""
-    s = session.query(exists().where(Tag.name == name)).scalar()
-    return s
+    return session.query(exists().where(Tag.name == name)).scalar()
